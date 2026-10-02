@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Amharic / Ethiopic friendly defaults for web */
+@layer base {
+  html,
+  body,
+  input,
+  textarea,
+  button,
+  * {
+    font-family: "NotoSansEthiopic_400Regular", "Noto Sans Ethiopic", system-ui, sans-serif;
+  }
+}

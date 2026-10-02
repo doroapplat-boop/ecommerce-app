@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Expo QR Scan</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #fff;
+      text-align: center;
+      padding: 24px;
+    }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    p { color: #94a3b8; margin: 0 0 20px; }
+    #qr {
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+      display: inline-block;
+    }
+    .link {
+      margin-top: 20px;
+      background: #1e293b;
+      padding: 12px 16px;
+      border-radius: 10px;
+      word-break: break-all;
+      font-size: 16px;
+      color: #60a5fa;
+    }
+    .hint { margin-top: 16px; font-size: 14px; color: #cbd5e1; max-width: 420px; }
+  </style>
+</head>
+<body>
+  <h1>Scan with Expo Go</h1>
+  <p>Phone and PC must be on the same Wi‑Fi</p>
+  <div id="qr"></div>
+  <div class="link" id="url"></div>
+  <p class="hint">
+    Open <b>Expo Go</b> → Scan QR.<br />
+    Or tap “Enter URL manually” and paste the link below.
+  </p>
+  <script>
+    const url = "exp://192.168.43.63:8081";
+    document.getElementById("url").textContent = url;
+    new QRCode(document.getElementById("qr"), {
+      text: url,
+      width: 280,
+      height: 280,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  </script>
+</body>
+</html>
