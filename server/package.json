@@ -6,6 +6,7 @@
     "scripts": {
         "start": "tsx server.ts",
         "server": "nodemon --exec tsx server.ts",
+        "set-owner": "tsx scripts/setOwner.ts",
         "build": "tsc"
     },
     "author": "",

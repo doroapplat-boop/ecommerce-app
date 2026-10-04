@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema<IUser>(
         phone: { type: String, unique: true, sparse: true, trim: true },
         clerkId: { type: String, unique: true, sparse: true },
         image: { type: String },
-        role: { type: String, enum: ["user", "admin"], default: "user" },
+        role: { type: String, enum: ["user", "admin", "super_admin"], default: "user" },
     },
     { timestamps: true }
 );

@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
 import connectDB from "./config/db.js";
 import { clerkMiddleware } from "@clerk/express";
 import ProductRouter from "./routes/productsRoutes.js";
@@ -14,6 +16,7 @@ import CategoryRouter from "./routes/categoryRoutes.js";
 import BannerRouter from "./routes/bannerRoutes.js";
 import PaymentMethodRouter from "./routes/paymentMethodRoutes.js";
 import SettingsRouter from "./routes/settingsRoutes.js";
+import UserRouter from "./routes/userRoutes.js";
 import makeAdmin from "./scripts/makeAdmin.js";
 import { clerkWebhook } from "./controllers/webhooks.js";
 import { handleStripeWebhook } from "./controllers/paymentController.js";
@@ -21,6 +24,9 @@ import paymentRouter from "./routes/paymentRoute.js";
 import { seedProducts } from "./scripts/seedProducts.js";
 import { seedCategories } from "./scripts/seedCategories.js";
 import { seedBanners } from "./scripts/seedBanners.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -35,6 +41,15 @@ process.env.STRIPE_SECRET_KEY && app.post("/api/stripe", express.raw({ type: "ap
 app.use(express.json());
 app.use(clerkMiddleware());
 
+// Public legal pages for Google Play (privacy + account deletion)
+app.use(express.static(path.join(__dirname, "public")));
+app.get("/privacy", (_req, res) => {
+    res.sendFile(path.join(__dirname, "public", "privacy.html"));
+});
+app.get("/delete-account", (_req, res) => {
+    res.sendFile(path.join(__dirname, "public", "delete-account.html"));
+});
+
 app.get("/", (req, res) => {
     res.send("Server is running");
 });
@@ -43,6 +58,7 @@ app.use("/api/categories", CategoryRouter);
 app.use("/api/banners", BannerRouter);
 app.use("/api/payment-methods", PaymentMethodRouter);
 app.use("/api/settings", SettingsRouter);
+app.use("/api/users", UserRouter);
 app.use("/api/cart", CartRouter);
 app.use("/api/orders", OrderRouter);
 app.use("/api/addresses", AddressRouter);

@@ -34,7 +34,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 // GET /api/admin/admins
 export const getAdmins = async (req: Request, res: Response) => {
     try {
-        const admins = await User.find({ role: "admin" })
+        const admins = await User.find({ role: { $in: ["admin", "super_admin"] } })
             .select("name email phone role image createdAt clerkId")
             .sort("-createdAt");
 
@@ -45,15 +45,12 @@ export const getAdmins = async (req: Request, res: Response) => {
 };
 
 // POST /api/admin/admins
-// Promote existing user by email, or create a new Clerk admin account
+// Promote an existing account to admin by email only
 export const addAdmin = async (req: Request, res: Response) => {
     try {
         const email = String(req.body.email || "")
             .trim()
             .toLowerCase();
-        const password = String(req.body.password || "").trim();
-        const firstName = String(req.body.firstName || "").trim();
-        const lastName = String(req.body.lastName || "").trim();
 
         if (!email) {
             return res.status(400).json({ success: false, message: "Email is required" });
@@ -63,40 +60,24 @@ export const addAdmin = async (req: Request, res: Response) => {
             emailAddress: [email],
             limit: 1,
         });
-        let clerkUser = existingList.data?.[0];
+        const clerkUser = existingList.data?.[0];
 
         if (!clerkUser) {
-            if (!password) {
-                return res.status(404).json({
-                    success: false,
-                    message: "No account found with this email. Enter a password to create a new admin.",
-                });
-            }
-            if (password.length < 8) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Password must be at least 8 characters",
-                });
-            }
-
-            clerkUser = await clerkClient.users.createUser({
-                emailAddress: [email],
-                password,
-                firstName: firstName || undefined,
-                lastName: lastName || undefined,
-                publicMetadata: { role: "admin" },
-            });
-        } else {
-            await clerkClient.users.updateUserMetadata(clerkUser.id, {
-                publicMetadata: {
-                    ...(clerkUser.publicMetadata || {}),
-                    role: "admin",
-                },
+            return res.status(404).json({
+                success: false,
+                message: "No account found with this email. They must sign up first.",
             });
         }
 
+        await clerkClient.users.updateUserMetadata(clerkUser.id, {
+            publicMetadata: {
+                ...(clerkUser.publicMetadata || {}),
+                role: "admin",
+            },
+        });
+
         const name =
-            `${clerkUser.firstName || firstName || ""} ${clerkUser.lastName || lastName || ""}`.trim() ||
+            `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() ||
             email.split("@")[0];
 
         let user = await User.findOne({ $or: [{ clerkId: clerkUser.id }, { email }] });
@@ -137,11 +118,18 @@ export const addAdmin = async (req: Request, res: Response) => {
 export const removeAdmin = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const ownerEmail = String(process.env.SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "")
+            .replace(/["']/g, "")
+            .trim()
+            .toLowerCase();
+        const actorEmail = String(req.user?.email || "")
+            .trim()
+            .toLowerCase();
 
         if (req.user._id.toString() === id) {
             return res.status(400).json({
                 success: false,
-                message: "You cannot remove your own admin access",
+                message: "You cannot remove your own admin access. Sign in as the owner email first.",
             });
         }
 
@@ -149,8 +137,27 @@ export const removeAdmin = async (req: Request, res: Response) => {
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
         }
-        if (user.role !== "admin") {
+        if (user.role !== "admin" && user.role !== "super_admin") {
             return res.status(400).json({ success: false, message: "User is not an admin" });
+        }
+
+        const targetEmail = String(user.email || "")
+            .trim()
+            .toLowerCase();
+
+        // Only the env owner account is protected — other super_admins can be demoted by owner
+        if (ownerEmail && targetEmail === ownerEmail) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot remove the owner account",
+            });
+        }
+
+        if (user.role === "super_admin" && actorEmail !== ownerEmail) {
+            return res.status(400).json({
+                success: false,
+                message: "Only the owner can remove another super admin",
+            });
         }
 
         if (user.clerkId) {

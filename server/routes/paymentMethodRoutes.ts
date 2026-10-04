@@ -6,15 +6,18 @@ import {
     updatePaymentMethod,
     deletePaymentMethod,
 } from "../controllers/paymentMethodController.js";
-import { protect, authorize } from "../middleware/auth.js";
+import { protect, authorize, authorizeSuperAdmin } from "../middleware/auth.js";
 import { uploadSingleIfMultipart } from "../middleware/upload.js";
 
 const PaymentMethodRouter = express.Router();
 
+// Public list for checkout (customers)
 PaymentMethodRouter.get("/", getPaymentMethods);
-PaymentMethodRouter.get("/all", protect, authorize("admin"), getAllPaymentMethods);
-PaymentMethodRouter.post("/", protect, authorize("admin"), uploadSingleIfMultipart("image"), createPaymentMethod);
-PaymentMethodRouter.put("/:id", protect, authorize("admin"), uploadSingleIfMultipart("image"), updatePaymentMethod);
-PaymentMethodRouter.delete("/:id", protect, authorize("admin"), deletePaymentMethod);
+
+// Owner-only payment method management
+PaymentMethodRouter.get("/all", protect, authorize("admin", "super_admin"), authorizeSuperAdmin, getAllPaymentMethods);
+PaymentMethodRouter.post("/", protect, authorize("admin", "super_admin"), authorizeSuperAdmin, uploadSingleIfMultipart("image"), createPaymentMethod);
+PaymentMethodRouter.put("/:id", protect, authorize("admin", "super_admin"), authorizeSuperAdmin, uploadSingleIfMultipart("image"), updatePaymentMethod);
+PaymentMethodRouter.delete("/:id", protect, authorize("admin", "super_admin"), authorizeSuperAdmin, deletePaymentMethod);
 
 export default PaymentMethodRouter;

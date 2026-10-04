@@ -92,7 +92,7 @@ export interface IUser extends Document {
     phone?: string;
     clerkId: string;
     image?: string;
-    role: "user" | "admin";
+    role: "user" | "admin" | "super_admin";
     createdAt: Date;
     updatedAt: Date;
 }
