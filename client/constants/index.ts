@@ -8,7 +8,47 @@ export const COLORS = {
     error: "#FF4444",
 };
 
+/** Display name — use this everywhere the app name is shown */
+export const APP_NAME = "GUZO SHOP";
+
+/** Owner email (same as server ADMIN_EMAIL / SUPER_ADMIN_EMAIL) — unlocks Admins + Payments menus */
+export const OWNER_EMAIL = String(process.env.EXPO_PUBLIC_OWNER_EMAIL || "")
+    .replace(/["']/g, "")
+    .trim()
+    .toLowerCase();
+
+export function isOwnerAccount(user: {
+    publicMetadata?: Record<string, unknown> | null;
+    primaryEmailAddress?: { emailAddress?: string | null } | null;
+    emailAddresses?: { emailAddress?: string | null }[] | null;
+} | null | undefined) {
+    if (!user || !OWNER_EMAIL) {
+        // Fallback only when owner email is not configured in the app
+        return user?.publicMetadata?.role === "super_admin";
+    }
+    const emails = [
+        user.primaryEmailAddress?.emailAddress,
+        ...(user.emailAddresses?.map((e) => e.emailAddress) || []),
+    ]
+        .filter(Boolean)
+        .map((e) => String(e).trim().toLowerCase());
+    // Only the configured owner email sees Payments + Admins
+    return emails.includes(OWNER_EMAIL);
+}
+
 export const CURRENCY = "birr";
+
+/** Support contact — shown in Profile, Settings, and hamburger menu */
+export const SUPPORT_PHONE = "+251977617278";
+export const SUPPORT_PHONE_DISPLAY = "+251 977 617 278";
+export const SUPPORT_EMAIL = "doroapplat@gmail.com";
+
+/** Public Play Store / legal URLs (must stay live, not PDF) */
+export const PRIVACY_POLICY_URL =
+    process.env.EXPO_PUBLIC_PRIVACY_URL || "https://ecommerce-app-ph3n.onrender.com/privacy";
+export const DELETE_ACCOUNT_URL =
+    process.env.EXPO_PUBLIC_DELETE_ACCOUNT_URL ||
+    "https://ecommerce-app-ph3n.onrender.com/delete-account";
 
 export const formatPrice = (amount: number | string | undefined | null) => {
     const value = Number(amount) || 0;
@@ -29,6 +69,13 @@ export const PROFILE_MENU = [
     { id: 1, title: "My Orders", icon: "receipt-outline", route: "/orders" },
     { id: 2, title: "Shipping Addresses", icon: "location-outline", route: "/addresses" },
     { id: 5, title: "Settings", icon: "settings-outline", route: "/settings" },
+    {
+        id: 6,
+        title: "Help Center",
+        icon: "headset-outline",
+        route: "/support",
+        subtitle: SUPPORT_PHONE_DISPLAY,
+    },
 ];
 
 export const getStatusColor = (status: string) => {
