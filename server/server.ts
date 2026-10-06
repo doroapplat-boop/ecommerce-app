@@ -128,10 +128,18 @@ app.use((err: any, _req: express.Request, res: express.Response, next: express.N
 
 const PORT = process.env.PORT || 3000;
 
-await makeAdmin();
-await seedCategories();
-await seedBanners();
-await seedProducts(process.env.MONGODB_URI as string);
+try {
+    await makeAdmin();
+} catch (err) {
+    console.error("makeAdmin skipped:", err);
+}
+try {
+    await seedCategories();
+    await seedBanners();
+    await seedProducts(process.env.MONGODB_URI as string);
+} catch (err) {
+    console.error("seed skipped:", err);
+}
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
