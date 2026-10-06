@@ -1,13 +1,37 @@
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View, ActivityIndicator, RefreshControl } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
+import React, { useEffect, useMemo, useState } from "react";
+import { ScrollView, Text, View, ActivityIndicator, RefreshControl, TouchableOpacity } from "react-native";
+import { useAuth, useUser } from "@clerk/clerk-expo";
+import { Ionicons } from "@expo/vector-icons";
+import Toast from "react-native-toast-message";
 import api from "@/constants/api";
-import { COLORS, getStatusColor, formatPrice } from "@/constants";
+import { COLORS, getStatusColor, formatPrice, isOwnerAccount } from "@/constants";
+
+type AdminMenuItem = {
+    title: string;
+    subtitle: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    route: string;
+    ownerOnly?: boolean;
+};
+
+const ADMIN_MENU: AdminMenuItem[] = [
+    { title: "Dashboard", subtitle: "Overview & recent orders", icon: "grid-outline", route: "/admin" },
+    { title: "Products", subtitle: "Add and manage products", icon: "cube-outline", route: "/admin/products" },
+    { title: "Orders", subtitle: "Track and update orders", icon: "receipt-outline", route: "/admin/orders" },
+    { title: "Categories", subtitle: "Organize product categories", icon: "albums-outline", route: "/admin/categories" },
+    { title: "Banners", subtitle: "Home screen banners", icon: "images-outline", route: "/admin/banners" },
+    { title: "Delivery", subtitle: "Delivery fee settings", icon: "bicycle-outline", route: "/admin/delivery" },
+    { title: "Payments", subtitle: "Payment methods", icon: "wallet-outline", route: "/admin/payments", ownerOnly: true },
+    { title: "Admins", subtitle: "Manage admin accounts", icon: "people-outline", route: "/admin/admins", ownerOnly: true },
+    { title: "Users", subtitle: "See all emails & delete accounts", icon: "person-outline", route: "/admin/users", ownerOnly: true },
+];
 
 export default function AdminDashboard() {
     const router = useRouter();
     const { getToken } = useAuth();
+    const { user } = useUser();
+    const isOwner = isOwnerAccount(user);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [stats, setStats] = useState({
@@ -18,17 +42,42 @@ export default function AdminDashboard() {
         recentOrders: []
     });
 
+    const menuItems = useMemo(
+        () => ADMIN_MENU.filter((item) => !item.ownerOnly || isOwner),
+        [isOwner]
+    );
+
     const fetchStats = async () => {
         try {
             const token = await getToken();
-            const { data } = await api.get('/admin/stats', {
-                headers: { Authorization: `Bearer ${token}` }
+            if (!token) {
+                Toast.show({
+                    type: "error",
+                    text1: "Session expired",
+                    text2: "Please sign in again",
+                });
+                return;
+            }
+            const { data } = await api.get("/admin/stats", {
+                headers: { Authorization: `Bearer ${token}` },
             });
             if (data.success) {
                 setStats(data.data);
             }
-        } catch (error) {
-            console.error("Failed to fetch admin stats:", error);
+        } catch (error: any) {
+            const status = error?.response?.status;
+            const message =
+                error?.response?.data?.message ||
+                (status === 403
+                    ? "No admin permission on server"
+                    : status === 401
+                      ? "Please sign in again"
+                      : "Cannot reach server. Check internet / API.");
+            Toast.show({
+                type: "error",
+                text1: "Could not load dashboard",
+                text2: message,
+            });
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -56,7 +105,43 @@ export default function AdminDashboard() {
         <ScrollView
             className="flex-1 bg-surface p-4"
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            contentContainerStyle={{ paddingBottom: 40 }}
         >
+            <View className="mb-6">
+                <Text className="text-secondary text-xs font-bold mb-2 uppercase px-1">Admin Menu</Text>
+                <View className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                    {menuItems.map((item, index) => {
+                        const isCurrent = item.route === "/admin";
+                        return (
+                            <TouchableOpacity
+                                key={item.route}
+                                disabled={isCurrent}
+                                onPress={() => router.push(item.route as any)}
+                                className={`flex-row items-center p-4 ${
+                                    index !== menuItems.length - 1 ? "border-b border-gray-100" : ""
+                                }`}
+                                activeOpacity={0.7}
+                            >
+                                <View className="w-10 h-10 bg-surface rounded-full items-center justify-center mr-4">
+                                    <Ionicons name={item.icon} size={20} color={COLORS.primary} />
+                                </View>
+                                <View className="flex-1">
+                                    <Text className="text-primary font-medium">{item.title}</Text>
+                                    <Text className="text-secondary text-xs mt-0.5">{item.subtitle}</Text>
+                                </View>
+                                {isCurrent ? (
+                                    <View className="bg-primary/10 px-2 py-1 rounded">
+                                        <Text className="text-primary text-[10px] font-bold">NOW</Text>
+                                    </View>
+                                ) : (
+                                    <Ionicons name="chevron-forward" size={18} color={COLORS.secondary} />
+                                )}
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
+            </View>
+
             <View className="mb-8">
                 <Text className="text-primary font-bold text-2xl mb-4 tracking-tight">Overview</Text>
                 <View className="flex-row flex-wrap justify-between">

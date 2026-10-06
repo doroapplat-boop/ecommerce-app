@@ -1,19 +1,23 @@
 import { Tabs, useRouter } from "expo-router";
 import { useUser } from "@clerk/clerk-expo";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { View, ActivityIndicator, TouchableOpacity, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS } from "@/constants";
+import { COLORS, isOwnerAccount, isStaffAccount } from "@/constants";
 
 export default function AdminLayout() {
     const { user, isLoaded } = useUser();
     const router = useRouter();
+    const isStaff = isStaffAccount(user);
+    const isOwner = isOwnerAccount(user);
 
     useEffect(() => {
-        if (isLoaded && (!user || user.publicMetadata?.role !== "admin")) {
+        if (isLoaded && (!user || !isStaff)) {
             router.replace("/(tabs)");
         }
-    }, [isLoaded, user]);
+    }, [isLoaded, user, isStaff]);
+
+    const ownerOnlyHref = useMemo(() => (isOwner ? undefined : null), [isOwner]);
 
     if (!isLoaded) {
         return (
@@ -23,7 +27,7 @@ export default function AdminLayout() {
         );
     }
 
-    if (!user || user.publicMetadata?.role !== "admin") return null;
+    if (!user || !isStaff) return null;
 
     return (
         <Tabs
@@ -36,14 +40,21 @@ export default function AdminLayout() {
                     fontWeight: "bold",
                 },
                 headerShadowVisible: false,
-                tabBarActiveTintColor: COLORS.primary,
-                tabBarInactiveTintColor: "gray",
+                tabBarStyle: { display: "none" },
+                headerLeft: () => (
+                    <TouchableOpacity
+                        onPress={() => router.replace("/admin")}
+                        className="ml-4 flex-row items-center"
+                    >
+                        <Ionicons name="chevron-back" size={24} color={COLORS.primary} />
+                    </TouchableOpacity>
+                ),
                 headerRight: () => (
                     <TouchableOpacity
                         onPress={() => router.replace("/(tabs)")}
                         className="mr-4 flex-row items-center"
                     >
-                        <Ionicons name="log-out-outline" size={24} color={COLORS.primary} />
+                        <Ionicons name="log-out-outline" size={22} color={COLORS.primary} />
                         <Text className="ml-1 text-primary font-medium">Exit</Text>
                     </TouchableOpacity>
                 ),
@@ -52,64 +63,34 @@ export default function AdminLayout() {
             <Tabs.Screen
                 name="index"
                 options={{
-                    title: "Dashboard",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="grid-outline" size={size} color={color} />
-                    )
+                    title: "Admin",
+                    headerLeft: () => null,
                 }}
             />
-            <Tabs.Screen
-                name="products"
-                options={{
-                    title: "Products",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="cube-outline" size={size} color={color} />
-                    )
-                }}
-            />
-            <Tabs.Screen
-                name="categories"
-                options={{
-                    title: "Categories",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="grid-outline" size={size} color={color} />
-                    )
-                }}
-            />
-            <Tabs.Screen
-                name="banners"
-                options={{
-                    title: "Banners",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="images-outline" size={size} color={color} />
-                    )
-                }}
-            />
+            <Tabs.Screen name="products" options={{ title: "Products" }} />
+            <Tabs.Screen name="orders" options={{ title: "Orders" }} />
+            <Tabs.Screen name="categories" options={{ title: "Categories" }} />
+            <Tabs.Screen name="banners" options={{ title: "Banners" }} />
+            <Tabs.Screen name="delivery" options={{ title: "Delivery" }} />
             <Tabs.Screen
                 name="payments"
                 options={{
                     title: "Payments",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="wallet-outline" size={size} color={color} />
-                    )
+                    href: ownerOnlyHref as any,
                 }}
             />
             <Tabs.Screen
-                name="delivery"
+                name="admins"
                 options={{
-                    title: "Delivery",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="bicycle-outline" size={size} color={color} />
-                    )
+                    title: "Admins",
+                    href: ownerOnlyHref as any,
                 }}
             />
             <Tabs.Screen
-                name="orders"
+                name="users"
                 options={{
-                    title: "Orders",
-                    tabBarIcon: ({ color, size }) => (
-                        <Ionicons name="receipt-outline" size={size} color={color} />
-                    )
+                    title: "Users",
+                    href: ownerOnlyHref as any,
                 }}
             />
         </Tabs>

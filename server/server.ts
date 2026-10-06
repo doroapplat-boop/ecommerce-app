@@ -53,6 +53,47 @@ app.get("/delete-account", (_req, res) => {
 app.get("/", (req, res) => {
     res.send("Server is running");
 });
+
+// Public diagnostics (no secrets) — check Clerk/Render config
+app.get("/api/health", (_req, res) => {
+    const secret = String(process.env.CLERK_SECRET_KEY || "");
+    const publishable = String(process.env.CLERK_PUBLISHABLE_KEY || "");
+    const adminEmail = String(process.env.ADMIN_EMAIL || process.env.SUPER_ADMIN_EMAIL || "")
+        .replace(/["']/g, "")
+        .trim();
+
+    const clerkMode = secret.startsWith("sk_live_")
+        ? "live"
+        : secret.startsWith("sk_test_")
+          ? "test"
+          : secret
+            ? "unknown"
+            : "missing";
+
+    const publishableMode = publishable.startsWith("pk_live_")
+        ? "live"
+        : publishable.startsWith("pk_test_")
+          ? "test"
+          : publishable
+            ? "unknown"
+            : "missing";
+
+    res.json({
+        success: true,
+        data: {
+            ok: true,
+            clerkSecretMode: clerkMode,
+            clerkPublishableMode: publishableMode,
+            keysMatch: clerkMode === publishableMode && clerkMode !== "missing",
+            adminEmailSet: !!adminEmail,
+            adminEmailHint: adminEmail
+                ? `${adminEmail.slice(0, 3)}***@${adminEmail.split("@")[1] || "?"}`
+                : null,
+            mongoConfigured: !!process.env.MONGODB_URI,
+        },
+    });
+});
+
 app.use("/api/products", ProductRouter);
 app.use("/api/categories", CategoryRouter);
 app.use("/api/banners", BannerRouter);

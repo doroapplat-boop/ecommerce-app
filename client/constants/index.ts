@@ -11,29 +11,46 @@ export const COLORS = {
 /** Display name — use this everywhere the app name is shown */
 export const APP_NAME = "GUZO SHOP";
 
-/** Owner email (same as server ADMIN_EMAIL / SUPER_ADMIN_EMAIL) — unlocks Admins + Payments menus */
-export const OWNER_EMAIL = String(process.env.EXPO_PUBLIC_OWNER_EMAIL || "")
+/** Owner email (same as server ADMIN_EMAIL) — unlocks Admins + Payments + Admin button */
+export const OWNER_EMAIL = String(
+    process.env.EXPO_PUBLIC_OWNER_EMAIL || "doroapplat@gmail.com"
+)
     .replace(/["']/g, "")
     .trim()
     .toLowerCase();
+
+function userEmails(user: {
+    primaryEmailAddress?: { emailAddress?: string | null } | null;
+    emailAddresses?: { emailAddress?: string | null }[] | null;
+} | null | undefined) {
+    return [
+        user?.primaryEmailAddress?.emailAddress,
+        ...(user?.emailAddresses?.map((e) => e.emailAddress) || []),
+    ]
+        .filter(Boolean)
+        .map((e) => String(e).trim().toLowerCase());
+}
 
 export function isOwnerAccount(user: {
     publicMetadata?: Record<string, unknown> | null;
     primaryEmailAddress?: { emailAddress?: string | null } | null;
     emailAddresses?: { emailAddress?: string | null }[] | null;
 } | null | undefined) {
-    if (!user || !OWNER_EMAIL) {
-        // Fallback only when owner email is not configured in the app
-        return user?.publicMetadata?.role === "super_admin";
-    }
-    const emails = [
-        user.primaryEmailAddress?.emailAddress,
-        ...(user.emailAddresses?.map((e) => e.emailAddress) || []),
-    ]
-        .filter(Boolean)
-        .map((e) => String(e).trim().toLowerCase());
-    // Only the configured owner email sees Payments + Admins
-    return emails.includes(OWNER_EMAIL);
+    if (!user) return false;
+    if (OWNER_EMAIL && userEmails(user).includes(OWNER_EMAIL)) return true;
+    return user.publicMetadata?.role === "super_admin";
+}
+
+/** Admin Panel button — owner email OR admin/super_admin role */
+export function isStaffAccount(user: {
+    publicMetadata?: Record<string, unknown> | null;
+    primaryEmailAddress?: { emailAddress?: string | null } | null;
+    emailAddresses?: { emailAddress?: string | null }[] | null;
+} | null | undefined) {
+    if (!user) return false;
+    if (isOwnerAccount(user)) return true;
+    const role = user.publicMetadata?.role;
+    return role === "admin" || role === "super_admin";
 }
 
 export const CURRENCY = "birr";

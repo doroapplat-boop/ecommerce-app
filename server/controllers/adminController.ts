@@ -1,6 +1,9 @@
 import User from "../models/User.js";
 import Product from "../models/Product.js";
 import Order from "../models/Order.js";
+import Cart from "../models/Cart.js";
+import Wishlist from "../models/Wishlist.js";
+import Address from "../models/Address.js";
 import { Request, Response } from "express";
 import { clerkClient } from "@clerk/express";
 
@@ -174,6 +177,81 @@ export const removeAdmin = async (req: Request, res: Response) => {
         await user.save();
 
         res.json({ success: true, message: "Admin access removed", data: user });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// GET /api/admin/users — all accounts (owner only)
+export const getAllUsers = async (req: Request, res: Response) => {
+    try {
+        const users = await User.find()
+            .select("name email phone role image createdAt clerkId")
+            .sort("-createdAt");
+
+        res.json({ success: true, data: users });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// DELETE /api/admin/users/:id — delete a user account (owner only)
+export const deleteUserAccount = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const ownerEmail = String(process.env.SUPER_ADMIN_EMAIL || process.env.ADMIN_EMAIL || "")
+            .replace(/["']/g, "")
+            .trim()
+            .toLowerCase();
+
+        if (req.user._id.toString() === id) {
+            return res.status(400).json({
+                success: false,
+                message: "You cannot delete your own account from here",
+            });
+        }
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const targetEmail = String(user.email || "")
+            .trim()
+            .toLowerCase();
+
+        if (ownerEmail && targetEmail === ownerEmail) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot delete the owner account",
+            });
+        }
+
+        if (user.role === "super_admin") {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot delete a super admin account",
+            });
+        }
+
+        if (user.clerkId) {
+            try {
+                await clerkClient.users.deleteUser(user.clerkId);
+            } catch (clerkErr: any) {
+                // If Clerk user is already gone, still remove from DB
+                console.error("Clerk deleteUser:", clerkErr?.message || clerkErr);
+            }
+        }
+
+        await Promise.all([
+            Cart.deleteMany({ user: user._id }),
+            Wishlist.deleteMany({ user: user._id }),
+            Address.deleteMany({ user: user._id }),
+        ]);
+
+        await User.deleteOne({ _id: user._id });
+
+        res.json({ success: true, message: "User account deleted" });
     } catch (error: any) {
         res.status(500).json({ success: false, message: error.message });
     }

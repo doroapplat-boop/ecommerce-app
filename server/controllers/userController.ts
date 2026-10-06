@@ -4,6 +4,29 @@ import Cart from "../models/Cart.js";
 import Wishlist from "../models/Wishlist.js";
 import Address from "../models/Address.js";
 
+/** GET /api/users/me — sync session user (also upgrades owner role via protect) */
+export const getMe = async (req: Request, res: Response) => {
+    try {
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({ success: false, message: "Not authorized" });
+        }
+        res.json({
+            success: true,
+            data: {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                image: user.image,
+            },
+        });
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 /** DELETE /api/users/me — remove personal app data for the signed-in user */
 export const deleteMyAccountData = async (req: Request, res: Response) => {
     try {

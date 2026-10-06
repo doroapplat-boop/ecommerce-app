@@ -153,7 +153,7 @@ export const authorizeSuperAdmin = (req: Request, res: Response, next: NextFunct
 
     return res.status(403).json({
         success: false,
-        message: "Only the owner can manage admins and payment methods",
+        message: "Only the owner can manage admins, users, and payment methods",
     });
 };
 

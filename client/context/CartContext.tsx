@@ -1,7 +1,8 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import api from '@/constants/api';
 import { Product } from '@/constants/types';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { router } from 'expo-router';
 import Toast from 'react-native-toast-message';
 
 export { Product };
@@ -28,17 +29,30 @@ type CartContextType = {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-    const { isSignedIn } = useAuth();
-    const { getToken } = useAuth();
+    const { isSignedIn, getToken } = useAuth();
+    const { user } = useUser();
 
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [cartTotal, setCartTotal] = useState(0);
 
+    /** Sync role with server (owner → super_admin in Clerk metadata) */
+    const syncSession = async () => {
+        try {
+            const token = await getToken();
+            if (!token) return;
+            await api.get("/users/me", { headers: { Authorization: `Bearer ${token}` } });
+            await user?.reload?.();
+        } catch (error) {
+            console.error("Failed to sync session:", error);
+        }
+    };
+
     const fetchCart = async () => {
         try {
             setIsLoading(true);
             const token = await getToken();
+            if (!token) return;
             const { data } = await api.get('/cart', { headers: { Authorization: `Bearer ${token}` } });
             if (data.success && data.data) {
                 const serverCart = data.data;
@@ -62,15 +76,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const addToCart = async (product: Product, quantity: number = 1): Promise<boolean> => {
         if (!isSignedIn) {
             Toast.show({
-                text1: 'Please login to add to cart',
-                type: 'error',
+                type: "error",
+                text1: "Sign in required",
+                text2: "Please sign in to add items or buy",
             });
+            router.push('/sign-in');
             return false;
         }
 
         try {
             setIsLoading(true);
             const token = await getToken();
+            if (!token) {
+                Toast.show({
+                    type: "error",
+                    text1: "Session expired",
+                    text2: "Sign out and sign in again",
+                });
+                router.push('/sign-in');
+                return false;
+            }
             const qty = Math.max(1, Number(quantity) || 1);
             const { data } = await api.post('/cart/add', { productId: product._id, quantity: qty }, { headers: { Authorization: `Bearer ${token}` } });
 
@@ -79,10 +104,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 return true;
             }
             return false;
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to add to cart:", error);
+            const status = error?.response?.status;
+            const serverMsg = error?.response?.data?.message;
+            const text2 =
+                status === 401
+                    ? "Auth failed — Render Clerk key must be sk_live_. Sign out & sign in again."
+                    : serverMsg || error?.message || "Check internet / server";
             Toast.show({
                 text1: 'Failed to add to cart',
+                text2,
                 type: 'error',
             });
             return false;
@@ -158,7 +190,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (isSignedIn) {
-            fetchCart();
+            syncSession().finally(() => fetchCart());
         } else {
             setCartItems([]);
             setCartTotal(0);
