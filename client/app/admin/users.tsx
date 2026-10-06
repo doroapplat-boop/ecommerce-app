@@ -14,7 +14,7 @@ import {
 import Toast from "react-native-toast-message";
 import { useFocusEffect, useRouter } from "expo-router";
 import api from "@/constants/api";
-import { COLORS, isOwnerAccount } from "@/constants";
+import { COLORS, OWNER_EMAIL, isOwnerAccount } from "@/constants";
 
 type AppUser = {
     _id: string;
@@ -105,7 +105,7 @@ export default function AdminAllUsers() {
             Toast.show({ type: "error", text1: "You cannot delete yourself" });
             return;
         }
-        if (u.role === "super_admin") {
+        if (OWNER_EMAIL && u.email && u.email.trim().toLowerCase() === OWNER_EMAIL) {
             Toast.show({ type: "error", text1: "Cannot delete owner account" });
             return;
         }
@@ -180,7 +180,10 @@ export default function AdminAllUsers() {
             ) : (
                 filtered.map((u) => {
                     const isMe = !!u.email && myEmails.has(u.email.toLowerCase());
-                    const isOwner = u.role === "super_admin";
+                    const isOwner =
+                        !!OWNER_EMAIL &&
+                        !!u.email &&
+                        u.email.trim().toLowerCase() === OWNER_EMAIL;
                     const canDelete = !isMe && !isOwner;
 
                     return (

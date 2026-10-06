@@ -164,13 +164,18 @@ export const removeAdmin = async (req: Request, res: Response) => {
         }
 
         if (user.clerkId) {
-            const clerkUser = await clerkClient.users.getUser(user.clerkId);
-            await clerkClient.users.updateUserMetadata(user.clerkId, {
-                publicMetadata: {
-                    ...(clerkUser.publicMetadata || {}),
-                    role: "user",
-                },
-            });
+            try {
+                const clerkUser = await clerkClient.users.getUser(user.clerkId);
+                await clerkClient.users.updateUserMetadata(user.clerkId, {
+                    publicMetadata: {
+                        ...(clerkUser.publicMetadata || {}),
+                        role: "user",
+                    },
+                });
+            } catch (clerkErr: any) {
+                // Still demote in DB if Clerk user is missing / outdated after Production switch
+                console.error("removeAdmin Clerk update:", clerkErr?.message || clerkErr);
+            }
         }
 
         user.role = "user";
@@ -178,7 +183,12 @@ export const removeAdmin = async (req: Request, res: Response) => {
 
         res.json({ success: true, message: "Admin access removed", data: user });
     } catch (error: any) {
-        res.status(500).json({ success: false, message: error.message });
+        const msg =
+            error?.errors?.[0]?.longMessage ||
+            error?.errors?.[0]?.message ||
+            error?.message ||
+            "Failed to remove admin";
+        res.status(500).json({ success: false, message: msg });
     }
 };
 
@@ -224,13 +234,6 @@ export const deleteUserAccount = async (req: Request, res: Response) => {
             return res.status(400).json({
                 success: false,
                 message: "Cannot delete the owner account",
-            });
-        }
-
-        if (user.role === "super_admin") {
-            return res.status(400).json({
-                success: false,
-                message: "Cannot delete a super admin account",
             });
         }
 

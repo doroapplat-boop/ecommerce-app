@@ -37,7 +37,10 @@ export function isOwnerAccount(user: {
     emailAddresses?: { emailAddress?: string | null }[] | null;
 } | null | undefined) {
     if (!user) return false;
-    if (OWNER_EMAIL && userEmails(user).includes(OWNER_EMAIL)) return true;
+    // When owner email is configured, ONLY that email is owner (not every super_admin)
+    if (OWNER_EMAIL) {
+        return userEmails(user).includes(OWNER_EMAIL);
+    }
     return user.publicMetadata?.role === "super_admin";
 }
 
@@ -62,10 +65,10 @@ export const SUPPORT_EMAIL = "doroapplat@gmail.com";
 
 /** Public Play Store / legal URLs (must stay live, not PDF) */
 export const PRIVACY_POLICY_URL =
-    process.env.EXPO_PUBLIC_PRIVACY_URL || "https://ecommerce-app-ph3n.onrender.com/privacy";
+    process.env.EXPO_PUBLIC_PRIVACY_URL || "https://ecommerce-app-1qi9.onrender.com/privacy";
 export const DELETE_ACCOUNT_URL =
     process.env.EXPO_PUBLIC_DELETE_ACCOUNT_URL ||
-    "https://ecommerce-app-ph3n.onrender.com/delete-account";
+    "https://ecommerce-app-1qi9.onrender.com/delete-account";
 
 export const formatPrice = (amount: number | string | undefined | null) => {
     const value = Number(amount) || 0;

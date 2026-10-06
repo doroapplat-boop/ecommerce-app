@@ -16,7 +16,7 @@ import {
 import Toast from "react-native-toast-message";
 import { useFocusEffect, useRouter } from "expo-router";
 import api from "@/constants/api";
-import { COLORS, isOwnerAccount } from "@/constants";
+import { COLORS, OWNER_EMAIL, isOwnerAccount } from "@/constants";
 
 type AdminUser = {
     _id: string;
@@ -182,7 +182,11 @@ export default function AdminUsers() {
     const isSelf = (admin: AdminUser) =>
         !!admin.email && myEmails.has(admin.email.toLowerCase());
 
-    const isOwnerRow = (admin: AdminUser) => admin.role === "super_admin";
+    /** Only the real owner email is protected — other admins/super_admins can be removed */
+    const isOwnerRow = (admin: AdminUser) =>
+        !!OWNER_EMAIL &&
+        !!admin.email &&
+        admin.email.trim().toLowerCase() === OWNER_EMAIL;
 
     const confirmRemove = (admin: AdminUser) => {
         if (isSelf(admin)) {
@@ -202,14 +206,15 @@ export default function AdminUsers() {
             return;
         }
 
+        const label = admin.email || admin.name || "this admin";
         if (Platform.OS === "web") {
-            if (window.confirm(`Remove admin access for ${admin.email || admin.name}?`)) {
+            if (window.confirm(`Remove admin access for ${label}?`)) {
                 doRemove(admin._id);
             }
             return;
         }
 
-        Alert.alert("Remove Admin", `Remove admin access for ${admin.email || admin.name}?`, [
+        Alert.alert("Remove Admin", `Remove admin access for ${label}?`, [
             { text: "Cancel", style: "cancel" },
             { text: "Remove", style: "destructive", onPress: () => doRemove(admin._id) },
         ]);
