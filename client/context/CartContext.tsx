@@ -68,12 +68,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 setCartTotal(serverCart.totalAmount);
             }
         } catch (error: any) {
+            // Silent on background fetch — avoid toast spam over address form / keyboard
             console.error("Failed to fetch cart:", error);
-            const text2 =
-                error?.userMessage ||
-                error?.response?.data?.message ||
-                "Check internet or sign in again";
-            Toast.show({ type: "error", text1: "Cart unavailable", text2 });
         } finally {
             setIsLoading(false);
         }
