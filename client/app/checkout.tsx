@@ -14,7 +14,6 @@ import {
     TextInput,
     Keyboard,
     KeyboardAvoidingView,
-    type KeyboardEvent,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import Header from "@/components/Header";
@@ -384,11 +383,9 @@ export default function Checkout() {
                             keyboardShouldPersistTaps="handled"
                             keyboardDismissMode="on-drag"
                             contentContainerStyle={{
-                                flexGrow: 1,
-                                justifyContent: "flex-end",
                                 paddingHorizontal: 20,
-                                paddingTop: 16,
-                                paddingBottom: Math.max(insets.bottom, 16) + 16,
+                                paddingTop: 12,
+                                paddingBottom: Math.max(insets.bottom, 16) + 24,
                             }}
                         >
                             {addresses.length > 0 && (

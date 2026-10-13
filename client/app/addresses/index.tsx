@@ -281,11 +281,9 @@ export default function Addresses() {
                             keyboardDismissMode="on-drag"
                             showsVerticalScrollIndicator
                             contentContainerStyle={{
-                                flexGrow: 1,
-                                justifyContent: "flex-end",
                                 paddingHorizontal: 20,
-                                paddingTop: 16,
-                                paddingBottom: Math.max(insets.bottom, 16) + 16,
+                                paddingTop: 12,
+                                paddingBottom: Math.max(insets.bottom, 16) + 24,
                             }}
                         >
                             <Text className="text-primary font-medium mb-2">City</Text>
