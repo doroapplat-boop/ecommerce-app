@@ -42,9 +42,7 @@ export default function Checkout() {
     const [savingAddress, setSavingAddress] = useState(false);
     const [deliveryFee, setDeliveryFee] = useState(2);
     const [showPaymentTypeModal, setShowPaymentTypeModal] = useState(false);
-    const [kbHeight, setKbHeight] = useState(0);
     const addressFormScrollRef = useRef<ScrollView>(null);
-    const phoneY = useRef(0);
 
     const total = cartTotal + deliveryFee;
 
@@ -185,35 +183,6 @@ export default function Checkout() {
         }
         fetchData();
     }, [isLoaded, isSignedIn]);
-
-    useEffect(() => {
-        if (!showAddressModal) {
-            setKbHeight(0);
-            return;
-        }
-        const onShow = (e: KeyboardEvent) => {
-            setKbHeight(e.endCoordinates?.height ?? 0);
-            setTimeout(() => {
-                addressFormScrollRef.current?.scrollTo({
-                    y: Math.max(0, phoneY.current - 24),
-                    animated: true,
-                });
-            }, 100);
-        };
-        const onHide = () => setKbHeight(0);
-        const showSub = Keyboard.addListener(
-            Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-            onShow
-        );
-        const hideSub = Keyboard.addListener(
-            Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-            onHide
-        );
-        return () => {
-            showSub.remove();
-            hideSub.remove();
-        };
-    }, [showAddressModal]);
 
     if (pageLoading) {
         return (
@@ -391,130 +360,113 @@ export default function Checkout() {
                 onRequestClose={() => setShowAddressModal(false)}
             >
                 <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
-                    <View
-                        className="flex-1"
-                        style={{ paddingBottom: Platform.OS === "android" ? kbHeight : 0 }}
-                    >
-                        <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-100">
-                            <Text className="text-xl font-bold text-primary">Add New Address</Text>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    Keyboard.dismiss();
-                                    setShowAddressModal(false);
-                                }}
-                            >
-                                <Ionicons name="close" size={26} color={COLORS.secondary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <KeyboardAvoidingView
-                            className="flex-1"
-                            behavior={Platform.OS === "ios" ? "padding" : undefined}
-                            keyboardVerticalOffset={insets.top + 8}
+                    <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-100">
+                        <Text className="text-xl font-bold text-primary">Add New Address</Text>
+                        <TouchableOpacity
+                            onPress={() => {
+                                Keyboard.dismiss();
+                                setShowAddressModal(false);
+                            }}
                         >
-                            <ScrollView
-                                ref={addressFormScrollRef}
-                                className="flex-1"
-                                showsVerticalScrollIndicator
-                                keyboardShouldPersistTaps="handled"
-                                keyboardDismissMode="on-drag"
-                                contentContainerStyle={{
-                                    paddingHorizontal: 20,
-                                    paddingTop: 20,
-                                    paddingBottom: 40 + (Platform.OS === "ios" ? kbHeight : 0),
-                                }}
-                            >
-                                {addresses.length > 0 && (
-                                    <View className="mb-5">
-                                        <Text className="text-secondary text-sm font-medium mb-3">Saved Addresses</Text>
-                                        {addresses.map((item) => (
-                                            <TouchableOpacity
-                                                key={item._id}
-                                                onPress={() => {
-                                                    setSelectedAddress(item);
-                                                    setShowAddressModal(false);
-                                                }}
-                                                className={`p-4 rounded-xl mb-2 flex-row items-center border ${
-                                                    selectedAddress?._id === item._id
-                                                        ? "border-primary bg-primary/5"
-                                                        : "border-gray-100"
-                                                }`}
-                                            >
-                                                <Ionicons name="location-outline" size={20} color={COLORS.primary} />
-                                                <View className="ml-3 flex-1">
-                                                    <Text className="text-primary font-medium">
-                                                        {item.city}, {item.state}
-                                                    </Text>
-                                                    {!!item.phone && (
-                                                        <Text className="text-secondary text-xs mt-1">{item.phone}</Text>
-                                                    )}
-                                                </View>
-                                                {selectedAddress?._id === item._id && (
-                                                    <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
-                                                )}
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                )}
-
-                                <Text className="text-primary font-medium mb-2">City</Text>
-                                <TextInput
-                                    className="bg-surface p-4 rounded-xl text-black mb-4"
-                                    placeholder="City"
-                                    placeholderTextColor="#999"
-                                    value={city}
-                                    onChangeText={setCity}
-                                />
-                                <Text className="text-primary font-medium mb-2">State</Text>
-                                <TextInput
-                                    className="bg-surface p-4 rounded-xl text-black mb-4"
-                                    placeholder="State"
-                                    placeholderTextColor="#999"
-                                    value={state}
-                                    onChangeText={setState}
-                                />
-                                <View
-                                    onLayout={(e) => {
-                                        phoneY.current = e.nativeEvent.layout.y;
-                                    }}
-                                >
-                                    <Text className="text-primary font-medium mb-2">Phone Number</Text>
-                                    <View className="flex-row items-center bg-surface rounded-xl overflow-hidden mb-6">
-                                        <Text className="px-4 text-primary font-medium">{COUNTRY_CODE}</Text>
-                                        <TextInput
-                                            className="flex-1 p-4 text-black"
-                                            placeholder="9XXXXXXXX"
-                                            placeholderTextColor="#999"
-                                            keyboardType="phone-pad"
-                                            value={phone}
-                                            onChangeText={setPhone}
-                                            onFocus={() => {
-                                                setTimeout(() => {
-                                                    addressFormScrollRef.current?.scrollTo({
-                                                        y: Math.max(0, phoneY.current - 24),
-                                                        animated: true,
-                                                    });
-                                                }, 150);
-                                            }}
-                                        />
-                                    </View>
-                                </View>
-                                <TouchableOpacity
-                                    onPress={handleSaveAddress}
-                                    disabled={savingAddress}
-                                    className={`w-full py-4 rounded-full items-center mb-6 ${
-                                        savingAddress ? "bg-gray-300" : "bg-primary"
-                                    }`}
-                                >
-                                    {savingAddress ? (
-                                        <ActivityIndicator color="white" />
-                                    ) : (
-                                        <Text className="text-white font-bold text-lg">Save Address</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </ScrollView>
-                        </KeyboardAvoidingView>
+                            <Ionicons name="close" size={26} color={COLORS.secondary} />
+                        </TouchableOpacity>
                     </View>
+
+                    <KeyboardAvoidingView
+                        className="flex-1"
+                        behavior={Platform.OS === "ios" ? "padding" : undefined}
+                        keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 56 : 0}
+                    >
+                        <ScrollView
+                            ref={addressFormScrollRef}
+                            className="flex-1"
+                            showsVerticalScrollIndicator
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
+                            contentContainerStyle={{
+                                flexGrow: 1,
+                                justifyContent: "flex-end",
+                                paddingHorizontal: 20,
+                                paddingTop: 16,
+                                paddingBottom: Math.max(insets.bottom, 16) + 16,
+                            }}
+                        >
+                            {addresses.length > 0 && (
+                                <View className="mb-5">
+                                    <Text className="text-secondary text-sm font-medium mb-3">Saved Addresses</Text>
+                                    {addresses.map((item) => (
+                                        <TouchableOpacity
+                                            key={item._id}
+                                            onPress={() => {
+                                                setSelectedAddress(item);
+                                                setShowAddressModal(false);
+                                            }}
+                                            className={`p-4 rounded-xl mb-2 flex-row items-center border ${
+                                                selectedAddress?._id === item._id
+                                                    ? "border-primary bg-primary/5"
+                                                    : "border-gray-100"
+                                            }`}
+                                        >
+                                            <Ionicons name="location-outline" size={20} color={COLORS.primary} />
+                                            <View className="ml-3 flex-1">
+                                                <Text className="text-primary font-medium">
+                                                    {item.city}, {item.state}
+                                                </Text>
+                                                {!!item.phone && (
+                                                    <Text className="text-secondary text-xs mt-1">{item.phone}</Text>
+                                                )}
+                                            </View>
+                                            {selectedAddress?._id === item._id && (
+                                                <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />
+                                            )}
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+
+                            <Text className="text-primary font-medium mb-2">City</Text>
+                            <TextInput
+                                className="bg-surface p-4 rounded-xl text-black mb-4"
+                                placeholder="City"
+                                placeholderTextColor="#999"
+                                value={city}
+                                onChangeText={setCity}
+                            />
+                            <Text className="text-primary font-medium mb-2">State</Text>
+                            <TextInput
+                                className="bg-surface p-4 rounded-xl text-black mb-4"
+                                placeholder="State"
+                                placeholderTextColor="#999"
+                                value={state}
+                                onChangeText={setState}
+                            />
+                            <Text className="text-primary font-medium mb-2">Phone Number</Text>
+                            <View className="flex-row items-center bg-surface rounded-xl overflow-hidden mb-6">
+                                <Text className="px-4 text-primary font-medium">{COUNTRY_CODE}</Text>
+                                <TextInput
+                                    className="flex-1 p-4 text-black"
+                                    placeholder="9XXXXXXXX"
+                                    placeholderTextColor="#999"
+                                    keyboardType="phone-pad"
+                                    value={phone}
+                                    onChangeText={setPhone}
+                                />
+                            </View>
+                            <TouchableOpacity
+                                onPress={handleSaveAddress}
+                                disabled={savingAddress}
+                                className={`w-full py-4 rounded-full items-center ${
+                                    savingAddress ? "bg-gray-300" : "bg-primary"
+                                }`}
+                            >
+                                {savingAddress ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text className="text-white font-bold text-lg">Save Address</Text>
+                                )}
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </KeyboardAvoidingView>
                 </SafeAreaView>
             </Modal>
         </SafeAreaView>
