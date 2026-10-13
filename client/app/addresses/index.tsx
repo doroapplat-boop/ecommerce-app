@@ -12,8 +12,6 @@ import {
     Platform,
     Keyboard,
     KeyboardAvoidingView,
-    Dimensions,
-    Pressable,
 } from "react-native";
 import Toast from 'react-native-toast-message';
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -58,9 +56,9 @@ export default function Addresses() {
 
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [keyboardOpen, setKeyboardOpen] = useState(false);
+    const [kbHeight, setKbHeight] = useState(0);
     const formScrollRef = useRef<ScrollView>(null);
-    const screenH = Dimensions.get("window").height;
+    const phoneY = useRef(0);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -73,14 +71,19 @@ export default function Addresses() {
 
     useEffect(() => {
         if (!modalVisible) {
-            setKeyboardOpen(false);
+            setKbHeight(0);
             return;
         }
-        const onShow = () => {
-            setKeyboardOpen(true);
-            setTimeout(() => formScrollRef.current?.scrollToEnd({ animated: true }), 120);
+        const onShow = (e: { endCoordinates?: { height?: number } }) => {
+            setKbHeight(e.endCoordinates?.height ?? 0);
+            setTimeout(() => {
+                formScrollRef.current?.scrollTo({
+                    y: Math.max(0, phoneY.current - 24),
+                    animated: true,
+                });
+            }, 100);
         };
-        const onHide = () => setKeyboardOpen(false);
+        const onHide = () => setKbHeight(0);
         const showSub = Keyboard.addListener(
             Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
             onShow
@@ -94,10 +97,6 @@ export default function Addresses() {
             hideSub.remove();
         };
     }, [modalVisible]);
-
-    const scrollFieldIntoView = () => {
-        setTimeout(() => formScrollRef.current?.scrollToEnd({ animated: true }), 150);
-    };
 
     const fetchAddresses = async () => {
         try {
@@ -280,42 +279,46 @@ export default function Addresses() {
 
             <Modal
                 animationType="slide"
-                transparent
                 visible={modalVisible}
                 onRequestClose={() => setModalVisible(false)}
-                statusBarTranslucent
+                presentationStyle="fullScreen"
             >
-                <KeyboardAvoidingView
-                    className="flex-1"
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
-                >
-                    <View className="flex-1 justify-end bg-black/50">
-                        <Pressable className="flex-1" onPress={() => setModalVisible(false)} />
-                        <View
-                            className="bg-white rounded-t-3xl px-6 pt-5"
-                            style={{
-                                maxHeight: keyboardOpen ? screenH * 0.55 : screenH * 0.88,
-                                paddingBottom: Math.max(insets.bottom, 16) + 8,
-                            }}
-                        >
-                            <View className="flex-row justify-between items-center mb-4">
-                                <Text className="text-xl font-bold text-primary">
-                                    {isEditing ? "Edit Address" : "Add New Address"}
-                                </Text>
-                                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                                    <Ionicons name="close" size={24} color={COLORS.primary} />
-                                </TouchableOpacity>
-                            </View>
+                <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+                    <View
+                        className="flex-1"
+                        style={{ paddingBottom: Platform.OS === "android" ? kbHeight : 0 }}
+                    >
+                        <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-100">
+                            <Text className="text-xl font-bold text-primary">
+                                {isEditing ? "Edit Address" : "Add New Address"}
+                            </Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    Keyboard.dismiss();
+                                    setModalVisible(false);
+                                }}
+                                className="p-1"
+                            >
+                                <Ionicons name="close" size={26} color={COLORS.primary} />
+                            </TouchableOpacity>
+                        </View>
 
+                        <KeyboardAvoidingView
+                            className="flex-1"
+                            behavior={Platform.OS === "ios" ? "padding" : undefined}
+                            keyboardVerticalOffset={insets.top + 8}
+                        >
                             <ScrollView
                                 ref={formScrollRef}
+                                className="flex-1"
                                 keyboardShouldPersistTaps="handled"
                                 keyboardDismissMode="on-drag"
-                                showsVerticalScrollIndicator={false}
-                                nestedScrollEnabled
-                                bounces={false}
-                                contentContainerStyle={{ paddingBottom: 28 }}
+                                showsVerticalScrollIndicator
+                                contentContainerStyle={{
+                                    paddingHorizontal: 20,
+                                    paddingTop: 20,
+                                    paddingBottom: 40 + (Platform.OS === "ios" ? kbHeight : 0),
+                                }}
                             >
                                 <Text className="text-primary font-medium mb-2">City</Text>
                                 <TextInput
@@ -324,7 +327,6 @@ export default function Addresses() {
                                     placeholderTextColor="#999"
                                     value={city}
                                     onChangeText={setCity}
-                                    onFocus={scrollFieldIntoView}
                                     returnKeyType="next"
                                 />
 
@@ -335,26 +337,38 @@ export default function Addresses() {
                                     placeholderTextColor="#999"
                                     value={state}
                                     onChangeText={setState}
-                                    onFocus={scrollFieldIntoView}
                                     returnKeyType="next"
                                 />
 
-                                <Text className="text-primary font-medium mb-2">Phone Number</Text>
-                                <View className="flex-row items-center bg-surface rounded-xl overflow-hidden mb-4">
-                                    <Text className="px-4 text-primary font-medium">{COUNTRY_CODE}</Text>
-                                    <TextInput
-                                        className="flex-1 p-4 text-black"
-                                        placeholder="9XXXXXXXX"
-                                        placeholderTextColor="#999"
-                                        keyboardType="phone-pad"
-                                        value={phone}
-                                        onChangeText={setPhone}
-                                        onFocus={scrollFieldIntoView}
-                                    />
+                                <View
+                                    onLayout={(e) => {
+                                        phoneY.current = e.nativeEvent.layout.y;
+                                    }}
+                                >
+                                    <Text className="text-primary font-medium mb-2">Phone Number</Text>
+                                    <View className="flex-row items-center bg-surface rounded-xl overflow-hidden mb-4">
+                                        <Text className="px-4 text-primary font-medium">{COUNTRY_CODE}</Text>
+                                        <TextInput
+                                            className="flex-1 p-4 text-black"
+                                            placeholder="9XXXXXXXX"
+                                            placeholderTextColor="#999"
+                                            keyboardType="phone-pad"
+                                            value={phone}
+                                            onChangeText={setPhone}
+                                            onFocus={() => {
+                                                setTimeout(() => {
+                                                    formScrollRef.current?.scrollTo({
+                                                        y: Math.max(0, phoneY.current - 24),
+                                                        animated: true,
+                                                    });
+                                                }, 150);
+                                            }}
+                                        />
+                                    </View>
                                 </View>
 
                                 <TouchableOpacity
-                                    className="flex-row items-center mb-6"
+                                    className="flex-row items-center mb-8"
                                     onPress={() => setIsDefault(!isDefault)}
                                 >
                                     <View
@@ -368,7 +382,7 @@ export default function Addresses() {
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    className="w-full bg-primary py-4 rounded-full items-center"
+                                    className="w-full bg-primary py-4 rounded-full items-center mb-6"
                                     onPress={handleSaveAddress}
                                     disabled={submitting}
                                 >
@@ -379,9 +393,9 @@ export default function Addresses() {
                                     )}
                                 </TouchableOpacity>
                             </ScrollView>
-                        </View>
+                        </KeyboardAvoidingView>
                     </View>
-                </KeyboardAvoidingView>
+                </SafeAreaView>
             </Modal>
         </SafeAreaView>
     );

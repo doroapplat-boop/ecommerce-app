@@ -14,8 +14,6 @@ import {
     TextInput,
     Keyboard,
     KeyboardAvoidingView,
-    Dimensions,
-    Pressable,
     type KeyboardEvent,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -44,9 +42,9 @@ export default function Checkout() {
     const [savingAddress, setSavingAddress] = useState(false);
     const [deliveryFee, setDeliveryFee] = useState(2);
     const [showPaymentTypeModal, setShowPaymentTypeModal] = useState(false);
-    const [keyboardOpen, setKeyboardOpen] = useState(false);
+    const [kbHeight, setKbHeight] = useState(0);
     const addressFormScrollRef = useRef<ScrollView>(null);
-    const screenH = Dimensions.get("window").height;
+    const phoneY = useRef(0);
 
     const total = cartTotal + deliveryFee;
 
@@ -190,14 +188,19 @@ export default function Checkout() {
 
     useEffect(() => {
         if (!showAddressModal) {
-            setKeyboardOpen(false);
+            setKbHeight(0);
             return;
         }
-        const onShow = (_e: KeyboardEvent) => {
-            setKeyboardOpen(true);
-            setTimeout(() => addressFormScrollRef.current?.scrollToEnd({ animated: true }), 120);
+        const onShow = (e: KeyboardEvent) => {
+            setKbHeight(e.endCoordinates?.height ?? 0);
+            setTimeout(() => {
+                addressFormScrollRef.current?.scrollTo({
+                    y: Math.max(0, phoneY.current - 24),
+                    animated: true,
+                });
+            }, 100);
         };
-        const onHide = () => setKeyboardOpen(false);
+        const onHide = () => setKbHeight(0);
         const showSub = Keyboard.addListener(
             Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
             onShow
@@ -211,10 +214,6 @@ export default function Checkout() {
             hideSub.remove();
         };
     }, [showAddressModal]);
-
-    const scrollAddressFieldIntoView = () => {
-        setTimeout(() => addressFormScrollRef.current?.scrollToEnd({ animated: true }), 150);
-    };
 
     if (pageLoading) {
         return (
@@ -388,38 +387,42 @@ export default function Checkout() {
             <Modal
                 visible={showAddressModal}
                 animationType="slide"
-                transparent
-                statusBarTranslucent
+                presentationStyle="fullScreen"
                 onRequestClose={() => setShowAddressModal(false)}
             >
-                <KeyboardAvoidingView
-                    className="flex-1"
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                >
-                    <View className="flex-1 justify-end bg-black/50">
-                        <Pressable className="flex-1" onPress={() => setShowAddressModal(false)} />
-                        <View
-                            className="bg-white rounded-t-3xl px-5 pt-5"
-                            style={{
-                                maxHeight: keyboardOpen ? screenH * 0.55 : screenH * 0.88,
-                                paddingBottom: Math.max(insets.bottom, 12) + 8,
-                            }}
-                        >
-                            <View className="flex-row justify-between items-center mb-4">
-                                <Text className="text-xl font-bold text-primary">Add New Address</Text>
-                                <TouchableOpacity onPress={() => setShowAddressModal(false)}>
-                                    <Ionicons name="close" size={24} color={COLORS.secondary} />
-                                </TouchableOpacity>
-                            </View>
+                <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
+                    <View
+                        className="flex-1"
+                        style={{ paddingBottom: Platform.OS === "android" ? kbHeight : 0 }}
+                    >
+                        <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-100">
+                            <Text className="text-xl font-bold text-primary">Add New Address</Text>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    Keyboard.dismiss();
+                                    setShowAddressModal(false);
+                                }}
+                            >
+                                <Ionicons name="close" size={26} color={COLORS.secondary} />
+                            </TouchableOpacity>
+                        </View>
 
+                        <KeyboardAvoidingView
+                            className="flex-1"
+                            behavior={Platform.OS === "ios" ? "padding" : undefined}
+                            keyboardVerticalOffset={insets.top + 8}
+                        >
                             <ScrollView
                                 ref={addressFormScrollRef}
-                                showsVerticalScrollIndicator={false}
+                                className="flex-1"
+                                showsVerticalScrollIndicator
                                 keyboardShouldPersistTaps="handled"
                                 keyboardDismissMode="on-drag"
-                                nestedScrollEnabled
-                                bounces={false}
-                                contentContainerStyle={{ paddingBottom: 28 }}
+                                contentContainerStyle={{
+                                    paddingHorizontal: 20,
+                                    paddingTop: 20,
+                                    paddingBottom: 40 + (Platform.OS === "ios" ? kbHeight : 0),
+                                }}
                             >
                                 {addresses.length > 0 && (
                                     <View className="mb-5">
@@ -461,7 +464,6 @@ export default function Checkout() {
                                     placeholderTextColor="#999"
                                     value={city}
                                     onChangeText={setCity}
-                                    onFocus={scrollAddressFieldIntoView}
                                 />
                                 <Text className="text-primary font-medium mb-2">State</Text>
                                 <TextInput
@@ -470,25 +472,37 @@ export default function Checkout() {
                                     placeholderTextColor="#999"
                                     value={state}
                                     onChangeText={setState}
-                                    onFocus={scrollAddressFieldIntoView}
                                 />
-                                <Text className="text-primary font-medium mb-2">Phone Number</Text>
-                                <View className="flex-row items-center bg-surface rounded-xl overflow-hidden mb-6">
-                                    <Text className="px-4 text-primary font-medium">{COUNTRY_CODE}</Text>
-                                    <TextInput
-                                        className="flex-1 p-4 text-black"
-                                        placeholder="9XXXXXXXX"
-                                        placeholderTextColor="#999"
-                                        keyboardType="phone-pad"
-                                        value={phone}
-                                        onChangeText={setPhone}
-                                        onFocus={scrollAddressFieldIntoView}
-                                    />
+                                <View
+                                    onLayout={(e) => {
+                                        phoneY.current = e.nativeEvent.layout.y;
+                                    }}
+                                >
+                                    <Text className="text-primary font-medium mb-2">Phone Number</Text>
+                                    <View className="flex-row items-center bg-surface rounded-xl overflow-hidden mb-6">
+                                        <Text className="px-4 text-primary font-medium">{COUNTRY_CODE}</Text>
+                                        <TextInput
+                                            className="flex-1 p-4 text-black"
+                                            placeholder="9XXXXXXXX"
+                                            placeholderTextColor="#999"
+                                            keyboardType="phone-pad"
+                                            value={phone}
+                                            onChangeText={setPhone}
+                                            onFocus={() => {
+                                                setTimeout(() => {
+                                                    addressFormScrollRef.current?.scrollTo({
+                                                        y: Math.max(0, phoneY.current - 24),
+                                                        animated: true,
+                                                    });
+                                                }, 150);
+                                            }}
+                                        />
+                                    </View>
                                 </View>
                                 <TouchableOpacity
                                     onPress={handleSaveAddress}
                                     disabled={savingAddress}
-                                    className={`w-full py-4 rounded-full items-center mb-2 ${
+                                    className={`w-full py-4 rounded-full items-center mb-6 ${
                                         savingAddress ? "bg-gray-300" : "bg-primary"
                                     }`}
                                 >
@@ -499,9 +513,9 @@ export default function Checkout() {
                                     )}
                                 </TouchableOpacity>
                             </ScrollView>
-                        </View>
+                        </KeyboardAvoidingView>
                     </View>
-                </KeyboardAvoidingView>
+                </SafeAreaView>
             </Modal>
         </SafeAreaView>
     );
