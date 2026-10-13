@@ -60,6 +60,35 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
         }
 
         if (!user) {
+            // Same person, new Clerk Production user id — link existing Mongo row
+            if (email) {
+                user = await User.findOne({
+                    email: {
+                        $regex: new RegExp(
+                            `^${email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+                            "i"
+                        ),
+                    },
+                });
+            }
+            if (!user && phone) {
+                user = await User.findOne({ phone });
+            }
+
+            if (user) {
+                user.clerkId = userId;
+                if (clerkUser.imageUrl) user.image = clerkUser.imageUrl;
+                const name =
+                    `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim();
+                if (name) user.name = name;
+                if (role === "super_admin" || (role === "admin" && user.role === "user")) {
+                    user.role = role;
+                }
+                await user.save();
+            }
+        }
+
+        if (!user) {
             if (!email && !phone) {
                 return res.status(401).json({
                     success: false,
@@ -67,15 +96,34 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
                 });
             }
 
-            user = await User.create({
-                name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "User",
-                email: email || undefined,
-                phone,
-                clerkId: userId,
-                image: clerkUser.imageUrl,
-                role,
-            });
-        } else {
+            try {
+                user = await User.create({
+                    name: `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim() || "User",
+                    email: email || undefined,
+                    phone,
+                    clerkId: userId,
+                    image: clerkUser.imageUrl,
+                    role,
+                });
+            } catch (createErr: any) {
+                if (createErr?.code === 11000) {
+                    user =
+                        (email ? await User.findOne({ email }) : null) ||
+                        (phone ? await User.findOne({ phone }) : null) ||
+                        (await User.findOne({ clerkId: userId }));
+                    if (user) {
+                        user.clerkId = userId;
+                        await user.save();
+                    }
+                }
+                if (!user) throw createErr;
+            }
+        } else if (user.clerkId !== userId) {
+            user.clerkId = userId;
+            await user.save();
+        }
+
+        if (user) {
             let dirty = false;
             if (email && user.email !== email) {
                 user.email = email;
@@ -95,22 +143,36 @@ export const protect = async (req: Request, res: Response, next: NextFunction) =
             if (dirty) await user.save();
 
             if (role === "super_admin" && metaRole !== "super_admin") {
-                await clerkClient.users.updateUserMetadata(userId, {
-                    publicMetadata: {
-                        ...(clerkUser.publicMetadata || {}),
-                        role: "super_admin",
-                    },
-                });
+                try {
+                    await clerkClient.users.updateUserMetadata(userId, {
+                        publicMetadata: {
+                            ...(clerkUser.publicMetadata || {}),
+                            role: "super_admin",
+                        },
+                    });
+                } catch (metaErr) {
+                    console.error("Clerk metadata sync:", metaErr);
+                }
             }
         }
 
         req.user = user;
         next();
-    } catch (err) {
+    } catch (err: any) {
         console.error("Auth error:", err);
-        res.status(500).json({
+        const clerkMsg = err?.errors?.[0]?.message || err?.message || "";
+        const status =
+            clerkMsg.includes("Unauthorized") ||
+            clerkMsg.includes("invalid") ||
+            clerkMsg.includes("expired")
+                ? 401
+                : 500;
+        res.status(status).json({
             success: false,
-            message: "Authentication failed",
+            message:
+                status === 401
+                    ? "Session expired. Sign out and sign in again."
+                    : "Authentication failed",
         });
     }
 };

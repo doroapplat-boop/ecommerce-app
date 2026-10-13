@@ -1,13 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
-import React, { useEffect, useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View, Modal, TextInput, ActivityIndicator, Alert } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import {
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
+    Modal,
+    TextInput,
+    ActivityIndicator,
+    Alert,
+    Platform,
+    Keyboard,
+    type KeyboardEvent,
+} from "react-native";
 import Toast from 'react-native-toast-message';
 import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "@/components/Header";
 import { COLORS } from "@/constants";
 import api from "@/constants/api";
+import { getApiToken } from "@/constants/authToken";
 import type { Address } from "@/constants/types";
 import { useAuth } from "@clerk/clerk-expo";
+import { useRouter } from "expo-router";
 
 const COUNTRY_CODE = "+251";
 
@@ -26,11 +40,12 @@ function localPhoneFromStored(phone?: string) {
 }
 
 export default function Addresses() {
+    const router = useRouter();
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
 
-    const { getToken } = useAuth();
+    const { getToken, isSignedIn, isLoaded } = useAuth();
 
     const [city, setCity] = useState("");
     const [state, setState] = useState("");
@@ -40,14 +55,60 @@ export default function Addresses() {
 
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [keyboardPad, setKeyboardPad] = useState(0);
+    const formScrollRef = useRef<ScrollView>(null);
 
     useEffect(() => {
+        if (!isLoaded) return;
+        if (!isSignedIn) {
+            router.replace("/sign-in");
+            return;
+        }
         fetchAddresses();
-    }, []);
+    }, [isLoaded, isSignedIn]);
+
+    useEffect(() => {
+        if (!modalVisible) {
+            setKeyboardPad(0);
+            return;
+        }
+        const onShow = (e: KeyboardEvent) => {
+            // Modals do not resize with the keyboard on Android — pad both platforms
+            const h = e.endCoordinates?.height ?? 0;
+            setKeyboardPad(h);
+            setTimeout(() => formScrollRef.current?.scrollToEnd({ animated: true }), 80);
+        };
+        const onHide = () => setKeyboardPad(0);
+        const showSub = Keyboard.addListener(
+            Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+            onShow
+        );
+        const hideSub = Keyboard.addListener(
+            Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+            onHide
+        );
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, [modalVisible]);
+
+    const scrollPhoneIntoView = () => {
+        setTimeout(() => formScrollRef.current?.scrollToEnd({ animated: true }), 100);
+    };
 
     const fetchAddresses = async () => {
         try {
-            const token = await getToken();
+            const token = await getApiToken(getToken);
+            if (!token) {
+                Toast.show({
+                    type: "error",
+                    text1: "Sign in required",
+                    text2: "Please sign in again",
+                });
+                router.replace("/sign-in");
+                return;
+            }
             const { data } = await api.get("/addresses", {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -58,7 +119,10 @@ export default function Addresses() {
             Toast.show({
                 type: 'error',
                 text1: 'Failed to Fetch Addresses',
-                text2: error.response?.data?.message || "Something went wrong"
+                text2:
+                    error?.userMessage ||
+                    error.response?.data?.message ||
+                    "Something went wrong",
             });
         } finally {
             setLoading(false);
@@ -214,47 +278,77 @@ export default function Addresses() {
 
             <Modal animationType="slide" transparent={true} visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
                 <View className="flex-1 justify-end bg-black/50">
-                    <View className="bg-white rounded-t-3xl p-6">
-                        <View className="flex-row justify-between items-center mb-6">
+                    <View
+                        className="bg-white rounded-t-3xl p-6"
+                        style={{
+                            maxHeight: keyboardPad > 0 ? "92%" : "88%",
+                            marginBottom: keyboardPad,
+                        }}
+                    >
+                        <View className="flex-row justify-between items-center mb-4">
                             <Text className="text-xl font-bold text-primary">{isEditing ? "Edit Address" : "Add New Address"}</Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)}>
                                 <Ionicons name="close" size={24} color={COLORS.primary} />
                             </TouchableOpacity>
                         </View>
 
-                        <Text className="text-primary font-medium mb-2">City</Text>
-                        <TextInput className="bg-surface p-4 rounded-xl text-primary mb-4" placeholder="City" value={city} onChangeText={setCity} />
-
-                        <Text className="text-primary font-medium mb-2">State</Text>
-                        <TextInput className="bg-surface p-4 rounded-xl text-primary mb-4" placeholder="State" value={state} onChangeText={setState} />
-
-                        <Text className="text-primary font-medium mb-2">Phone Number</Text>
-                        <View className="flex-row items-center bg-surface rounded-xl overflow-hidden mb-4">
-                            <Text className="px-4 text-primary font-medium">{COUNTRY_CODE}</Text>
+                        <ScrollView
+                            ref={formScrollRef}
+                            keyboardShouldPersistTaps="handled"
+                            keyboardDismissMode="on-drag"
+                            showsVerticalScrollIndicator={false}
+                            nestedScrollEnabled
+                            contentContainerStyle={{ paddingBottom: Math.max(40, keyboardPad > 0 ? 24 : 32) }}
+                        >
+                            <Text className="text-primary font-medium mb-2">City</Text>
                             <TextInput
-                                className="flex-1 p-4 text-primary"
-                                placeholder="9XXXXXXXX"
+                                className="bg-surface p-4 rounded-xl text-black mb-4"
+                                placeholder="City"
                                 placeholderTextColor="#999"
-                                keyboardType="phone-pad"
-                                value={phone}
-                                onChangeText={setPhone}
+                                value={city}
+                                onChangeText={setCity}
+                                onFocus={scrollPhoneIntoView}
                             />
-                        </View>
 
-                        <TouchableOpacity className="flex-row items-center mb-8" onPress={() => setIsDefault(!isDefault)}>
-                            <View className={`w-5 h-5 border rounded mr-2 items-center justify-center ${isDefault ? 'bg-primary border-primary' : 'border-gray-300'}`}>
-                                {isDefault && <Ionicons name="checkmark" size={14} color="white" />}
+                            <Text className="text-primary font-medium mb-2">State</Text>
+                            <TextInput
+                                className="bg-surface p-4 rounded-xl text-black mb-4"
+                                placeholder="State"
+                                placeholderTextColor="#999"
+                                value={state}
+                                onChangeText={setState}
+                                onFocus={scrollPhoneIntoView}
+                            />
+
+                            <Text className="text-primary font-medium mb-2">Phone Number</Text>
+                            <View className="flex-row items-center bg-surface rounded-xl overflow-hidden mb-4">
+                                <Text className="px-4 text-primary font-medium">{COUNTRY_CODE}</Text>
+                                <TextInput
+                                    className="flex-1 p-4 text-black"
+                                    placeholder="9XXXXXXXX"
+                                    placeholderTextColor="#999"
+                                    keyboardType="phone-pad"
+                                    value={phone}
+                                    onChangeText={setPhone}
+                                    onFocus={scrollPhoneIntoView}
+                                />
                             </View>
-                            <Text className="text-primary">Set as default address</Text>
-                        </TouchableOpacity>
 
-                        <TouchableOpacity className="w-full bg-primary py-4 rounded-full items-center mb-4" onPress={handleSaveAddress} disabled={submitting} >
-                            {submitting ? (
-                                <ActivityIndicator color="white" />
-                            ) : (
-                                <Text className="text-white font-bold text-lg">Save Address</Text>
-                            )}
-                        </TouchableOpacity>
+                            <TouchableOpacity className="flex-row items-center mb-8" onPress={() => setIsDefault(!isDefault)}>
+                                <View className={`w-5 h-5 border rounded mr-2 items-center justify-center ${isDefault ? 'bg-primary border-primary' : 'border-gray-300'}`}>
+                                    {isDefault && <Ionicons name="checkmark" size={14} color="white" />}
+                                </View>
+                                <Text className="text-primary">Set as default address</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity className="w-full bg-primary py-4 rounded-full items-center mb-4" onPress={handleSaveAddress} disabled={submitting} >
+                                {submitting ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <Text className="text-white font-bold text-lg">Save Address</Text>
+                                )}
+                            </TouchableOpacity>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>

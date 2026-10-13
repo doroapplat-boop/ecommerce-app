@@ -1,5 +1,6 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import api from '@/constants/api';
+import { getApiToken } from '@/constants/authToken';
 import { Product } from '@/constants/types';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
@@ -39,7 +40,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     /** Sync role with server (owner → super_admin in Clerk metadata) */
     const syncSession = async () => {
         try {
-            const token = await getToken();
+            const token = await getApiToken(getToken);
             if (!token) return;
             await api.get("/users/me", { headers: { Authorization: `Bearer ${token}` } });
             await user?.reload?.();
@@ -51,7 +52,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const fetchCart = async () => {
         try {
             setIsLoading(true);
-            const token = await getToken();
+            const token = await getApiToken(getToken);
             if (!token) return;
             const { data } = await api.get('/cart', { headers: { Authorization: `Bearer ${token}` } });
             if (data.success && data.data) {
@@ -66,8 +67,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 setCartItems(mappedItems);
                 setCartTotal(serverCart.totalAmount);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to fetch cart:", error);
+            const text2 =
+                error?.userMessage ||
+                error?.response?.data?.message ||
+                "Check internet or sign in again";
+            Toast.show({ type: "error", text1: "Cart unavailable", text2 });
         } finally {
             setIsLoading(false);
         }
@@ -86,7 +92,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
         try {
             setIsLoading(true);
-            const token = await getToken();
+            const token = await getApiToken(getToken);
             if (!token) {
                 Toast.show({
                     type: "error",
