@@ -15,9 +15,9 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://ecommerce-app-ph3n.onrender.com/api",
+        "EXPO_PUBLIC_API_URL": "https://ecommerce-app-1qi9.onrender.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsubmVzcnVldC5jb20k",
-        "EXPO_PUBLIC_OWNER_EMAIL": "doroapplat@gmail.com",
+        "EXPO_PUBLIC_OWNER_EMAIL": "nesrucoffee1@gmail.com",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     },
@@ -27,9 +27,9 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://ecommerce-app-ph3n.onrender.com/api",
+        "EXPO_PUBLIC_API_URL": "https://ecommerce-app-1qi9.onrender.com/api",
         "EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_live_Y2xlcmsubmVzcnVldC5jb20k",
-        "EXPO_PUBLIC_OWNER_EMAIL": "doroapplat@gmail.com",
+        "EXPO_PUBLIC_OWNER_EMAIL": "nesrucoffee1@gmail.com",
         "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
       }
     }

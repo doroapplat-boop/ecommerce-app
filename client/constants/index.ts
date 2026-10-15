@@ -13,7 +13,7 @@ export const APP_NAME = "GUZO SHOP";
 
 /** Owner email (same as server ADMIN_EMAIL) — unlocks Admins + Payments + Admin button */
 export const OWNER_EMAIL = String(
-    process.env.EXPO_PUBLIC_OWNER_EMAIL || "doroapplat@gmail.com"
+    process.env.EXPO_PUBLIC_OWNER_EMAIL || "nesrucoffee1@gmail.com"
 )
     .replace(/["']/g, "")
     .trim()
